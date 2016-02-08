@@ -1,0 +1,159 @@
+Communication in a Bare-Metal-Multiprocessor
+Friday Afternoon
+Sritam Paltasingh, Embedded Systems.
+Hassan Mahmood, Embedded Systems.
+Abstract— Multiprocessors are required in systems where we
+need to achieve true parallelism. Multiprocessor chip sets are
+often used in mobiles and other consumer electronics. There are
+several limitations to the use of multiprocessor systems apart
+from the benefits. These limitations and benefits are explained in
+this paper.
+Keywords— true parallelism, consumer electronics.
+I. FEATURES OF MULTI-PROCESSOR
+Five processors allow for parallel processing thereby
+increasing the throughput by introducing true parallelism. On
+chip memories are available for each processor. Mutexes are
+available in the hardware for synchronization between
+processors. Two FIFOs are available which are common to the
+five processors.The Avalon switch fabric instead of traditional
+buses acts as the interconnect network between the peripherals
+and the processors. It uses slave side arbitration to let multiple
+master operate at the same time.
+II. LIMITATIONS OF MULTI-PROCESSOR
+Data integrity is a big problem because of shared memory. A
+synchronization mechanism is required to make the execution
+of the critical sections in the code safe.Arbitration hardware is
+needed to get control of different resources (slaves) available
+to each of the processors (masters). However, in our hardware,
+the pio (peripheral input/output) core and the performance
+counter is only available to cpu_0. Communication is done
+through a shared bus and that acts as the bottleneck in the
+system. The bandwidth of the bus determines the speed of the
+system.
+III. MECHANISMS FOR PASSING MESSAGES BETWEEN
+PROCESSORS IN THIS ARCHITECTURE
+A. SHARED MEMORY
+Problem is data integrity. Processor communication needs
+to be synchronized in some way. Otherwise we have the
+mutual exclusion problem for the critical section.
+B. FIFO(FAST IN FAST OUT)
+ Problem is that if the buffer is full, writing to the buffer
+means that some information has been overwritten.
+Secondly, reading from an empty buffer means that the
+information read is invalid
+ This method is analogous to sending a letter to a
+central post box and anyone can pick up that letter.
+Which is why we have to have a mechanism to be sure
+of who is sending the message and who is reading it.
+Also, there are two conditions to be met for such
+mechanism to be safe. No one can write to the buffer
+when the buffer is full and no one should read from the
+buffer when the buffer is empty
+IV. MEMORY FOOTPRINT OF COMPILED SOURCE CODE
+ON EACH CPU
+OPTIMISED_SOURCE_FILES
+TEXT DATA BSS DEC HEX FILENAME
+11128 584 432 12144 2F70 hello_mpsoc_0.elf
+3256 328 24 3608 E18 hello_mpsoc_1.elf
+2644 96 24 2764 ACC hello_mpsoc_2.elf
+5492 328 24 5844 16D4 hello_mpsoc_3.elf
+2144 96 16 2256 8D0 hello_mpsoc_4.elf
+UNOPTIMISED_SOURCE_FILES
+TEXT DATA BSS DEC HEX FILENAME
+11060 584 432 12076 2f2c hello_mpsoc_0.elf
+5588 328 24 5940 1734 hello_mpsoc_1.elf
+5568 328 24 5920 1720 hello_mpsoc_2.elf
+5588 328 24 5940 1734 hello_mpsoc_3.elf
+2684 328 16 3028 BD4 hello_mpsoc_4.elf
+A. Demo Application: Dining Philosophers Problem
+Four philosophers are sitting on a round table with one
+bowl of rice in the middle. On either side of a philosopher
+there is a CHOPSTICK, i.e. four chopsticks in total. The
+philosophers have three states; THINKING, HUNGRY,
+EATING. Since the resources are limited, we have to come up
+with an algorithm that makes sure that no two philosophers
+access the same chopstick at the same time.
+In our case the philosopher is represented by the processor and
+the chopstick is represented by the shared memory.
+B. Solution
+Basically accessing the chopsticks is a typical critical
+section problem which requires mutual exclusion. Since we
+have mutexes available in our bare metal hardware
+architecture, we can use them to lock the critical section
+whenever one of the processors tries to access the shared
+memory. Since there are four chopsticks on the table and each
+chopstick can be accessed by two philosophers, we need four
+mutexes.
+The algorithm starts with each processor in the THINKING
+state. This is known as a thinking session. After a delay, the
+processor writes its ID to the fifo buffer, goes into the
+HUNGRY state and needs to check for the CHOPSTICK.
+Since these are basically the shared memory and all the
+processors are capable of reading (checking for chopstick) and
+writing (picking up or releasing the chopstick) to it, the
+processor must acquire a mutex before checking for the
+availability of the resource. If the left chopstick is available, it
+needs to acquire another mutex for the right chopstick. If both
+of them are available, the processor can go into the EATING
+state and then go back to THINKING after a delay. If either
+one of the chopsticks is not available, the processor gets
+blocked until they become available.
+The fifth processor is the master. It starts by resetting the
+shared memory by assigning 0 it. Then it polls to check
+whether there is a new entry in the fifo buffer. If one of the
+other four processors has sent their ID to the fifo, the master
+reads it and prints that the corresponding processor has
+finished a thinking session.
+In addition to the above functionality, there are some
+additional features in cpu_0. A switch is used to GROUND
+the processor; the processor is stopped right after a thinking
+session if the switch is flipped. There is also the option of
+increasing or decreasing the THINKING time by using the
+buttons. Note that polling is used to check the switch and the
+button and so they will be detected only at certain points in the
+control flow unlike when interrupts are used.
+Initially, we were thinking of implementing a non-greedy
+algorithm, i.e, a philosopher who wants to eat will first check
+if the left chopstick is available and only if it is available will
+it check for the right chopstick. If both the chopsticks are not
+available, the philosopher will stop contending for them for a
+period of time and then try again. In this way, we intended to
+avoid any chance of a deadlock. Apart from the non-greedy
+algorithm, we also incorporated a counter for each processor
+that counted the number of consecutive failed tries it made to
+access the chopstick. This counter value was used to compare
+between two neighboring processors and the one with the
+higher value was allowed to access the shared resource. These
+two techniques were incorporated to avoid deadlocks and
+starvation. However, the problem with using a mutex is that
+when a processor tries to acquire it but it is not available, the
+processor gets blocked and it cannot get out of that state and
+because of this problem, it is not possible to apply the nongreedy
+algorithm.
+C. Flowchart
+Fig. 1. Flowchart representation of the dining philosophers problem
+Fig. 2. Performance Counter Implementation in CPU0
+Fig. 3. Architecture
+COST
+The peripherals that were required to implement the
+application are 5 processors, 5 mutuxes, 2 fifo’s, 1 switch, 2
+buttons, 1 red led, 2 green led’s, 4 seven segment display’s,
+SDRAM, SRAM.
+The cost regarding the memory footprint is shown in the
+memory footprint section above.
+References
+A number of useful references are there for better
+understanding of the various concepts presented in this paper.
+The Altera Nios II documentation provides detailed
+information about the working and programming of the Nios
+II processor[1].
+In order to understand the various peripherals attached to the
+system, the embedded peripherals user’s guide provides a
+clear explanation[2].
+For embedded programmers, the Nios II software developer’s
+handbook serves as a quick reference guide[3].
+[1] http://wl.altera.com/literature/lit-nio2.jsp
+[2] https://www.altera.com/content/dam/alterawww/
+global/en_US/pdfs/literature/ug/ug_embedded_ip.pdf
+[3] https://www.altera.com/content/dam/alterawww/
+global/en_US/pdfs/literature/hb/nios2/n2sw_nii5v2.pdf.
